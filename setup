@@ -6,19 +6,12 @@ set -e
 # If we're debugging, be really loudly verbose
 [[ ! -z $DEBUG ]] && set -x
 
-# Attempt to load up the /etc/lsb-release file to determine our OS. If none is
-# found, we default our settings to RHEL/Amazon Linux as the original behavior
-# of this script intended.
-if [[ -f /etc/lsb-release ]]; then
-  dist=Ubuntu
-elif [[ -f /etc/debian_version ]]; then
-  dist=Debian
-else
-  dist=RedHat
-fi
+
+
+dist=$(cat /etc/os-release | awk -F= '/^ID=/{print $2}' | tr -d '"')
 
 # Tell the user what OS we detected
-echo "Detected OS Distro: ${dist}"
+echo "Detected OS Distro: ${ID}"
 
 # Make sure only root can run our script
 if [ "$(id -u)" != "0" ]; then
@@ -29,18 +22,28 @@ fi
 # Based on the OS, determine which commands we'll be calling to install/manage
 # certain things
 case "$dist" in
-  Ubuntu)
+  ubuntu)
     install_package="apt-get install -y"
     init_dir=/etc/init.d
     sysconfig_dir=/etc/default ;;
-  Debian)
+  debian)
     install_package="apt-get install -y"
     init_dir=/etc/init.d
     sysconfig_dir=/etc/default ;;
-  *)
-    install_package="yum install -y"
+  centos|rhel)
+    install_package="rpm install -y"
     init_dir=/etc/rc.d/init.d
     sysconfig_dir=/etc/sysconfig ;;
+  suse|sles)
+    install_package="zypper install "
+    init_dir=/etc/init.d
+    sysconfig_dir=/etc/sysconfig
+    systemd_dir=/etc/systemd/system ;;
+  *)
+    echo "Distro '${ID}' not supported" 2>&1
+    exit 1
+    ;;
+
 esac
 
 daemon_name=aws-kinesis-agent
@@ -147,8 +150,10 @@ do_uninstall () {
   # remove the service from system services
   echo "Removing $daemon_name from system services..."
   case "$dist" in
-    Ubuntu) update-rc.d -f $daemon_name remove > /dev/null 2>&1 || true ;;
-    Debian) update-rc.d -f $daemon_name remove > /dev/null 2>&1 || true ;;
+    ubuntu) update-rc.d -f $daemon_name remove > /dev/null 2>&1 || true ;;
+    debian) update-rc.d -f $daemon_name remove > /dev/null 2>&1 || true ;;
+    sles)   chkconfig --del $daemon_name > /dev/null 2>&1 || true
+            rm -f ${systemd_dir}/${daemon_name}.service || true  ;;
     *) chkconfig --del $daemon_name > /dev/null 2>&1 || true ;;
   esac
   
@@ -184,7 +189,7 @@ do_install () {
   
   echo "Installing Kinesis Agent ..."
   
-  do_build
+  #do_build
   
   install -d ${config_dir}
   install -d ${config_flow_dir}
@@ -204,9 +209,11 @@ do_install () {
   install -m644 ./support/log4j.xml ${config_dir}
   
   # add a user for starting the agent
+  groupqadd $agent_user_name > /dev/null 2>&1
   id -u $agent_user_name > /dev/null 2>&1 || \
   useradd -c "Streaming Data Agent" -r $agent_user_name
-  usermod -L $agent_user_name
+  usermod -L $agent_user_name > /dev/null 2>&1
+  usermod -a -G $agent_user_name $agent_user_name > /dev/null 2>&1
   
   # change the owner of log files and checkpoint files to the user
   chown -R $agent_user_name $state_dir
@@ -219,8 +226,11 @@ do_install () {
   cat "${config_file}"
   
   case "$dist" in
-    Ubuntu) update-rc.d $daemon_name defaults ;;
-    Debian) update-rc.d $daemon_name defaults ;;
+    ubuntu) update-rc.d $daemon_name defaults ;;
+    debian) update-rc.d $daemon_name defaults ;;
+    sles)   install -m755 ./bin/${daemon_name}.service ${systemd_dir}/${daemon_name}.service
+            install -m755 ./bin/functions ${init_dir}/functions
+            chkconfig --add $daemon_name  ;;
     *) chkconfig --add $daemon_name ;;
   esac
   

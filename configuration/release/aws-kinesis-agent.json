@@ -5,13 +5,9 @@
   
   "flows": [
     {
-      "filePattern": "/tmp/app.log*",
-      "kinesisStream": "yourkinesisstream",
+      "filePattern": "/var/log/*.log",
+      "deliveryStream": "yourkinesisstream",
       "partitionKeyOption": "RANDOM"
-    },
-    {
-      "filePattern": "/tmp/app.log*",
-      "deliveryStream": "yourdeliverystream"
     }
   ]
 }

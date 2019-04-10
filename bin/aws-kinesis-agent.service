@@ -1,0 +1,33 @@
+# location: /etc/systemd/system/
+[Unit]
+Description = Control the aws-kinesis-agent daemon
+After       = syslog.target
+
+[Service]
+# make sure the shell script is executable (chmod +x $1)
+# and it begins with a shebang (#!/bin/bash)
+ExecStart   = /etc/init.d/aws-kinesis-agent start
+
+# In my example script I start a node server,
+# So tell the serive how to kill it / reload.
+ExecStop    = /etc/init.d/aws-kinesis-agent stop
+
+
+# In case if it gets stopped, restart it immediately
+Restart     = always
+
+
+# With forking Type
+Type        = forking
+
+# systemd gets to read the PID of daemon's main process
+# see ExecStop and ExecReload
+PIDFile     = /var/run/aws-kinesis-agent.pid
+
+#ignore the sigterm signal sent by java app -> 128 + 15 = 143
+SuccessExitStatus =143
+
+[Install]
+# multi-user.target corresponds to run level 3
+# roughtly meaning wanted by system start
+WantedBy    = multi-user.target
