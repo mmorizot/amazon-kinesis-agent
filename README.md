@@ -82,6 +82,7 @@ The installation done by the setup script is only tested on the following OS Dis
   * **Amazon Linux AMI** version 2015.09 or later
   * **Ubuntu Linux** version 12.04 or later
   * **Debian Linux** version 8.6 or later
+  * **Suse Linux** version 12SP1 or later
 
 For other distributions or platforms, you can build the Java project with the following command:
 
