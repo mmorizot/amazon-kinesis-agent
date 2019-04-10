@@ -209,7 +209,7 @@ do_install () {
   install -m644 ./support/log4j.xml ${config_dir}
   
   # add a user for starting the agent
-  groupqadd $agent_user_name > /dev/null 2>&1
+  groupadd $agent_user_name > /dev/null 2>&1
   id -u $agent_user_name > /dev/null 2>&1 || \
   useradd -c "Streaming Data Agent" -r $agent_user_name
   usermod -L $agent_user_name > /dev/null 2>&1
